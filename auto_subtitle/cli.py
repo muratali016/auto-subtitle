@@ -18,8 +18,6 @@ COLORS = {
     "magenta": "&HFF00FF",
 }
 
-
-
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -47,6 +45,12 @@ def main():
     parser.add_argument("--border_style", type=int, default=3,
                         help="Style of the subtitle border. 1 for outline, 3 for box.")
 
+    # Added font type and size options
+    parser.add_argument("--font_name", type=str, default="Arial",
+                        help="Font type for the subtitles.")
+    parser.add_argument("--font_size", type=int, default=24,
+                        help="Font size for the subtitles.")
+
     args = parser.parse_args().__dict__
     model_name: str = args.pop("model")
     output_dir: str = args.pop("output_dir")
@@ -55,6 +59,8 @@ def main():
     language: str = args.pop("language")
     color_name: str = args.pop("color").lower()
     border_style: int = args.pop("border_style")
+    font_name: str = args.pop("font_name")
+    font_size: int = args.pop("font_size")
 
     # Convert color name to hexadecimal value
     color = COLORS.get(color_name, "&H00FF00")  # Default to green if color is not recognized
@@ -87,7 +93,7 @@ def main():
         audio = video.audio
 
         ffmpeg.concat(
-            video.filter('subtitles', srt_path, force_style=f"OutlineColour={color},BorderStyle={border_style}"), audio, v=1, a=1
+            video.filter('subtitles', srt_path, force_style=f"FontName={font_name},FontSize={font_size},OutlineColour={color},BorderStyle={border_style}"), audio, v=1, a=1
         ).output(out_path).run(quiet=True, overwrite_output=True)
 
         print(f"Saved subtitled video to {os.path.abspath(out_path)}.")
