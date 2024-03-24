@@ -6,7 +6,6 @@ import warnings
 import tempfile
 from .utils import filename, str2bool, write_srt
 
-
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -22,7 +21,9 @@ def main():
                         help="only generate the .srt file and not create overlayed video")
     parser.add_argument("--verbose", type=str2bool, default=False,
                         help="whether to print out the progress and debug messages")
-
+    parser.add_argument("--subtitle_color", type=str, default="yellow",
+                        help="color of the subtitles. Choose from 'yellow', 'red', 'green', 'blue', 'white', or provide a hexadecimal color code (e.g., '#FF0000')")
+    
     parser.add_argument("--task", type=str, default="transcribe", choices=[
                         "transcribe", "translate"], help="whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate')")
     parser.add_argument("--language", type=str, default="auto", choices=["auto","af","am","ar","as","az","ba","be","bg","bn","bo","br","bs","ca","cs","cy","da","de","el","en","es","et","eu","fa","fi","fo","fr","gl","gu","ha","haw","he","hi","hr","ht","hu","hy","id","is","it","ja","jw","ka","kk","km","kn","ko","la","lb","ln","lo","lt","lv","mg","mi","mk","ml","mn","mr","ms","mt","my","ne","nl","nn","no","oc","pa","pl","ps","pt","ro","ru","sa","sd","si","sk","sl","sn","so","sq","sr","su","sv","sw","ta","te","tg","th","tk","tl","tr","tt","uk","ur","uz","vi","yi","yo","zh"], 
@@ -34,6 +35,7 @@ def main():
     output_srt: bool = args.pop("output_srt")
     srt_only: bool = args.pop("srt_only")
     language: str = args.pop("language")
+    subtitle_color: str = args.pop("subtitle_color")
     
     os.makedirs(output_dir, exist_ok=True)
 
@@ -48,7 +50,7 @@ def main():
     model = whisper.load_model(model_name)
     audios = get_audio(args.pop("video"))
     subtitles = get_subtitles(
-        audios, output_srt or srt_only, output_dir, lambda audio_path: model.transcribe(audio_path, **args)
+        audios, output_srt or srt_only, output_dir, lambda audio_path: model.transcribe(audio_path, **args), subtitle_color
     )
 
     if srt_only:
@@ -63,7 +65,7 @@ def main():
         audio = video.audio
 
         ffmpeg.concat(
-            video.filter('subtitles', srt_path, force_style="OutlineColour=&H40000000,BorderStyle=3"), audio, v=1, a=1
+            video.filter('subtitles', srt_path, force_style=f"OutlineColour={get_color_code(subtitle_color)},BorderStyle=3"), audio, v=1, a=1
         ).output(out_path).run(quiet=True, overwrite_output=True)
 
         print(f"Saved subtitled video to {os.path.abspath(out_path)}.")
@@ -88,7 +90,7 @@ def get_audio(paths):
     return audio_paths
 
 
-def get_subtitles(audio_paths: list, output_srt: bool, output_dir: str, transcribe: callable):
+def get_subtitles(audio_paths: list, output_srt: bool, output_dir: str, transcribe: callable, subtitle_color: str):
     subtitles_path = {}
 
     for path, audio_path in audio_paths.items():
@@ -104,11 +106,21 @@ def get_subtitles(audio_paths: list, output_srt: bool, output_dir: str, transcri
         warnings.filterwarnings("default")
 
         with open(srt_path, "w", encoding="utf-8") as srt:
-            write_srt(result["segments"], file=srt)
+            write_srt(result["segments"], file=srt, color=subtitle_color)
 
         subtitles_path[path] = srt_path
 
     return subtitles_path
+
+def get_color_code(color):
+    color_dict = {
+        "yellow": "&HFFFF00",
+        "red": "&HFF0000",
+        "green": "&H00FF00",
+        "blue": "&H0000FF",
+        "white": "&HFFFFFF"
+    }
+    return color_dict.get(color.lower(), color)
 
 
 if __name__ == '__main__':
