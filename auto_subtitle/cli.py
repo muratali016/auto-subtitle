@@ -6,6 +6,19 @@ import warnings
 import tempfile
 from utils import filename, str2bool, write_srt
 
+# Dictionary to map color names to hexadecimal values
+COLORS = {
+    "black": "&H000000",
+    "white": "&HFFFFFF",
+    "red": "&HFF0000",
+    "green": "&H00FF00",
+    "blue": "&H0000FF",
+    "yellow": "&HFFFF00",
+    "cyan": "&H00FFFF",
+    "magenta": "&HFF00FF",
+}
+
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -27,6 +40,12 @@ def main():
                         "transcribe", "translate"], help="whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate')")
     parser.add_argument("--language", type=str, default="auto", choices=["auto","af","am","ar","as","az","ba","be","bg","bn","bo","br","bs","ca","cs","cy","da","de","el","en","es","et","eu","fa","fi","fo","fr","gl","gu","ha","haw","he","hi","hr","ht","hu","hy","id","is","it","ja","jw","ka","kk","km","kn","ko","la","lb","ln","lo","lt","lv","mg","mi","mk","ml","mn","mr","ms","mt","my","ne","nl","nn","no","oc","pa","pl","ps","pt","ro","ru","sa","sd","si","sk","sl","sn","so","sq","sr","su","sv","sw","ta","te","tg","th","tk","tl","tr","tt","uk","ur","uz","vi","yi","yo","zh"], 
     help="What is the origin language of the video? If unset, it is detected automatically.")
+    
+    # Added color and style options
+    parser.add_argument("--color", type=str, default="green",
+                        help="Color of the subtitles. Available colors: black, white, red, green, blue, yellow, cyan, magenta.")
+    parser.add_argument("--border_style", type=int, default=3,
+                        help="Style of the subtitle border. 1 for outline, 3 for box.")
 
     args = parser.parse_args().__dict__
     model_name: str = args.pop("model")
@@ -34,6 +53,11 @@ def main():
     output_srt: bool = args.pop("output_srt")
     srt_only: bool = args.pop("srt_only")
     language: str = args.pop("language")
+    color_name: str = args.pop("color").lower()
+    border_style: int = args.pop("border_style")
+
+    # Convert color name to hexadecimal value
+    color = COLORS.get(color_name, "&H00FF00")  # Default to green if color is not recognized
     
     os.makedirs(output_dir, exist_ok=True)
 
@@ -63,7 +87,7 @@ def main():
         audio = video.audio
 
         ffmpeg.concat(
-            video.filter('subtitles', srt_path, force_style="OutlineColour=&H00FF00,BorderStyle=3"), audio, v=1, a=1
+            video.filter('subtitles', srt_path, force_style=f"OutlineColour={color},BorderStyle={border_style}"), audio, v=1, a=1
         ).output(out_path).run(quiet=True, overwrite_output=True)
 
         print(f"Saved subtitled video to {os.path.abspath(out_path)}.")
